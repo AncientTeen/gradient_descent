@@ -1,25 +1,32 @@
-import sys
+import tkinter as tk
+from tkinter import ttk
 import numpy as np
 
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QLabel, QLineEdit,
-    QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGridLayout
-)
-from PyQt5.QtCore import Qt
+# If your regression functions are in a separate file called `regression.py`:
+from regression import linear_regression, parabolic_regression, sixth_deg_regression
+# from regression import linear_regression, sixth_deg_regression
 
 from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-from regression import linear_regression, parabolic_regression, sixth_deg_regression
 
-class PlotCanvas(FigureCanvas):
-    """A Matplotlib canvas embedded in a QWidget."""
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-        super().__init__(fig)
-        self.setParent(parent)
+
+
+class PlotCanvas:
+    """
+    A wrapper around a Matplotlib Figure for embedding in a Tkinter widget.
+    Provides methods to plot data and loss curves.
+    """
+    def __init__(self, parent, width=5, height=4, dpi=100):
+        self.parent = parent
+        self.figure = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = self.figure.add_subplot(111)
+
+        # Create canvas and add it to the parent
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self.parent)
+        self.canvas_widget = self.canvas.get_tk_widget()
+        self.canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     def plot_data(self, x, y, title="Sample Data"):
         """Plot (x, y) on the canvas."""
@@ -27,7 +34,7 @@ class PlotCanvas(FigureCanvas):
         self.axes.scatter(x, y, s=10, c="blue", alpha=0.7, label="Generated Data")
         self.axes.set_title(title)
         self.axes.legend()
-        self.draw()
+        self.canvas.draw()
 
     def plot_loss(self, loss_array, title="Loss Over Iterations"):
         """Plot the loss array on the canvas."""
@@ -37,111 +44,121 @@ class PlotCanvas(FigureCanvas):
         self.axes.set_ylabel("Loss")
         self.axes.set_title(title)
         self.axes.legend()
-        self.draw()
+        self.canvas.draw()
 
 
-class MainWindow(QMainWindow):
+class App(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Gradient Descent Demo")
+        self.title("Gradient Descent Demo (Tkinter)")
+        self.geometry("900x700")
 
         # Data holders
         self.x_data = None
         self.y_data = None
 
         # ---------------------------
-        #   Widgets / Layout
+        #   Top Frame for Inputs
         # ---------------------------
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        input_frame = tk.Frame(self)
+        input_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
 
-        layout = QVBoxLayout()
-        central_widget.setLayout(layout)
+        # Parabolic coefficient a
+        tk.Label(input_frame, text="Parabolic coefficient a:").grid(row=0, column=0, sticky=tk.W, padx=2, pady=2)
+        self.a_var = tk.StringVar(value="1.0")
+        tk.Entry(input_frame, textvariable=self.a_var, width=8).grid(row=0, column=1, padx=2, pady=2)
 
-        # Input fields for generating parabolic sample
-        input_layout = QGridLayout()
+        # Parabolic coefficient b
+        tk.Label(input_frame, text="Parabolic coefficient b:").grid(row=1, column=0, sticky=tk.W, padx=2, pady=2)
+        self.b_var = tk.StringVar(value="0.5")
+        tk.Entry(input_frame, textvariable=self.b_var, width=8).grid(row=1, column=1, padx=2, pady=2)
 
-        input_layout.addWidget(QLabel("Parabolic coefficient a:"), 0, 0)
-        self.a_edit = QLineEdit("1.0")
-        input_layout.addWidget(self.a_edit, 0, 1)
+        # Parabolic coefficient c
+        tk.Label(input_frame, text="Parabolic coefficient c:").grid(row=2, column=0, sticky=tk.W, padx=2, pady=2)
+        self.c_var = tk.StringVar(value="0.2")
+        tk.Entry(input_frame, textvariable=self.c_var, width=8).grid(row=2, column=1, padx=2, pady=2)
 
-        input_layout.addWidget(QLabel("Parabolic coefficient b:"), 1, 0)
-        self.b_edit = QLineEdit("0.5")
-        input_layout.addWidget(self.b_edit, 1, 1)
+        # Noise variance
+        tk.Label(input_frame, text="Noise variance:").grid(row=3, column=0, sticky=tk.W, padx=2, pady=2)
+        self.var_var = tk.StringVar(value="0.5")
+        tk.Entry(input_frame, textvariable=self.var_var, width=8).grid(row=3, column=1, padx=2, pady=2)
 
-        input_layout.addWidget(QLabel("Parabolic coefficient c:"), 2, 0)
-        self.c_edit = QLineEdit("0.2")
-        input_layout.addWidget(self.c_edit, 2, 1)
+        # Generate sample button
+        gen_button = tk.Button(input_frame, text="Generate Sample", command=self.generate_sample)
+        gen_button.grid(row=4, column=0, columnspan=2, pady=4)
 
-        input_layout.addWidget(QLabel("Noise variance:"), 3, 0)
-        self.var_edit = QLineEdit("0.5")
-        input_layout.addWidget(self.var_edit, 3, 1)
+        # ---------------------------
+        #   Canvas for data display
+        # ---------------------------
+        self.data_frame = tk.Frame(self)
+        self.data_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.generate_btn = QPushButton("Generate Sample")
-        self.generate_btn.clicked.connect(self.generate_sample)
-        input_layout.addWidget(self.generate_btn, 4, 0, 1, 2)
+        self.data_canvas = PlotCanvas(self.data_frame, width=5, height=3)
 
-        layout.addLayout(input_layout)
+        # ---------------------------
+        #   Middle Frame for GD Input
+        # ---------------------------
+        gd_frame = tk.Frame(self)
+        gd_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
 
-        # Plot canvas for data
-        self.data_canvas = PlotCanvas(self, width=5, height=4)
-        layout.addWidget(self.data_canvas)
+        # Model selection
+        tk.Label(gd_frame, text="Model:").pack(side=tk.LEFT, padx=2)
+        self.model_var = tk.StringVar(value="Linear")
+        model_combo = ttk.Combobox(gd_frame, textvariable=self.model_var, values=["Linear", "Parabolic", "6th Degree"], width=12)
+        model_combo.pack(side=tk.LEFT, padx=2)
 
-        # Model selection and gradient descent input
-        gd_layout = QHBoxLayout()
+        # Iterations
+        tk.Label(gd_frame, text="Iterations:").pack(side=tk.LEFT, padx=2)
+        self.iter_var = tk.StringVar(value="100")
+        tk.Entry(gd_frame, textvariable=self.iter_var, width=6).pack(side=tk.LEFT, padx=2)
 
-        gd_layout.addWidget(QLabel("Model:"))
-        self.model_combo = QComboBox()
-        self.model_combo.addItems(["Linear", "Parabolic", "6th Degree"])
-        gd_layout.addWidget(self.model_combo)
+        # Learning rate
+        tk.Label(gd_frame, text="Learning Rate:").pack(side=tk.LEFT, padx=2)
+        self.lr_var = tk.StringVar(value="0.001")
+        tk.Entry(gd_frame, textvariable=self.lr_var, width=6).pack(side=tk.LEFT, padx=2)
 
-        gd_layout.addWidget(QLabel("Iterations:"))
-        self.iter_edit = QLineEdit("100")
-        gd_layout.addWidget(self.iter_edit)
+        # Run Gradient Descent button
+        tk.Button(gd_frame, text="Run Gradient Descent", command=self.run_gradient_descent)\
+            .pack(side=tk.LEFT, padx=10)
 
-        gd_layout.addWidget(QLabel("Learning Rate:"))
-        self.lr_edit = QLineEdit("0.001")
-        gd_layout.addWidget(self.lr_edit)
+        # ---------------------------
+        #   Canvas for loss display
+        # ---------------------------
+        self.loss_frame = tk.Frame(self)
+        self.loss_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-        self.train_btn = QPushButton("Run Gradient Descent")
-        self.train_btn.clicked.connect(self.run_gradient_descent)
-        gd_layout.addWidget(self.train_btn)
-
-        layout.addLayout(gd_layout)
-
-        # Plot canvas for loss
-        self.loss_canvas = PlotCanvas(self, width=5, height=3)
-        layout.addWidget(self.loss_canvas)
+        self.loss_canvas = PlotCanvas(self.loss_frame, width=5, height=3)
 
     def generate_sample(self):
         """Generate (x, y) data from a + b*x + c*x^2 + noise."""
         try:
-            a = float(self.a_edit.text())
-            b = float(self.b_edit.text())
-            c = float(self.c_edit.text())
-            variance = float(self.var_edit.text())
+            a = float(self.a_var.get())
+            b = float(self.b_var.get())
+            c = float(self.c_var.get())
+            variance = float(self.var_var.get())
 
-            # Generate sample
             np.random.seed(0)  # for reproducibility
             self.x_data = np.linspace(-5, 5, 50)
             noise = np.random.normal(0, variance, self.x_data.shape)
-            self.y_data = a + b*self.x_data + c*(self.x_data**2) + noise
+            self.y_data = a + b*self.x_data + c*self.x_data**2 + noise
 
             # Plot the generated sample
             self.data_canvas.plot_data(self.x_data, self.y_data, title="Generated Parabolic Sample")
+
         except ValueError:
-            pass  # In a real app you'd show an error message
+            # In a production app, you might show a warning dialog here.
+            pass
 
     def run_gradient_descent(self):
         """Run gradient descent on the selected model using the generated data."""
         if self.x_data is None or self.y_data is None:
-            return  # No data to train on
+            return  # No data to train on, or not generated yet.
 
         try:
-            iterations = int(self.iter_edit.text())
-            lr = float(self.lr_edit.text())
-            model_name = self.model_combo.currentText()
+            iterations = int(self.iter_var.get())
+            lr = float(self.lr_var.get())
+            model_name = self.model_var.get()
 
             x = self.x_data
             y = self.y_data
@@ -149,33 +166,34 @@ class MainWindow(QMainWindow):
             # Pick initial params depending on model
             if model_name == "Linear":
                 # (a, b)
-                params = [0.0, 0.0]
+                params = [0.5, 0.5]
                 loss_array, final_params = linear_regression(x, y, params, iterations, lr)
 
             elif model_name == "Parabolic":
                 # (a, b, c)
-                params = [0.0, 0.0, 0.0]
+                params = [0.5, 0.5, 0.5]
                 loss_array, final_params = parabolic_regression(x, y, params, iterations, lr)
 
             else:
                 # 6th Degree
                 # (a, b, c, d, e, f, g)
-                params = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+                params = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
                 loss_array, final_params = sixth_deg_regression(x, y, params, iterations, lr)
 
             # Plot the loss
             self.loss_canvas.plot_loss(loss_array, title=f"{model_name} Loss Over Iterations")
 
         except ValueError:
-            pass  # In a real app you'd show an error message
+            # In a production app, you might show a warning dialog here.
+            pass
 
 
 def main():
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
+    app = App()
+    app.mainloop()
 
 
 if __name__ == "__main__":
     main()
+
+
