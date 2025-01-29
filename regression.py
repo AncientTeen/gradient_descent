@@ -2,19 +2,16 @@ import numpy as np
 from icecream import ic
 
 def linear_regression(x: list[float], y: list[float], params: list[float], iterations: int,
-                          learning_rate: float, beta1: float = 0.9, beta2: float = 0.999,
-                          epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float]]:
+                              learning_rate: float, epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float]]:
     """
-    Finds linear regression parameters using the Adam optimizer.
+    Finds linear regression parameters using the AdaGrad optimizer.
 
     Args:
         x (list[float]): Independent variable data points.
         y (list[float]): Dependent variable data points.
         params (list[float]): Initial parameters [a, b].
         iterations (int): Number of iterations for optimization.
-        learning_rate (float): Learning rate for the optimizer.
-        beta1 (float): Exponential decay rate for the first moment estimates.
-        beta2 (float): Exponential decay rate for the second moment estimates.
+        learning_rate (float): Initial learning rate for the optimizer.
         epsilon (float): Small constant for numerical stability.
 
     Returns:
@@ -23,17 +20,16 @@ def linear_regression(x: list[float], y: list[float], params: list[float], itera
             - final_params (tuple[float, float]): Optimized parameters (a, b).
     """
     # Convert lists to NumPy arrays for vectorized operations
-    x = np.array(x)
-    y = np.array(y)
+    x = np.array(x, dtype=np.float64)
+    y = np.array(y, dtype=np.float64)
     params = np.array(params, dtype=np.float64)
 
     a, b = params
     n = len(x)
     loss_array = []
 
-    # Initialize first and second moments
-    m = np.zeros_like(params)
-    v = np.zeros_like(params)
+    # Initialize accumulated squared gradients
+    G = np.zeros_like(params)
 
     for k in range(1, iterations + 1):
         # Prediction
@@ -49,20 +45,12 @@ def linear_regression(x: list[float], y: list[float], params: list[float], itera
         d_b = (-2 / n) * np.sum(x * error)
         grads = np.array([d_a, d_b])
 
-        # Update first moment vector
-        m = beta1 * m + (1 - beta1) * grads
-
-        # Update second moment vector
-        v = beta2 * v + (1 - beta2) * (grads ** 2)
-
-        # Compute bias-corrected first moment
-        m_hat = m / (1 - beta1 ** k)
-
-        # Compute bias-corrected second moment
-        v_hat = v / (1 - beta2 ** k)
+        # Accumulate squared gradients
+        G += grads ** 2
 
         # Update parameters
-        params = params - learning_rate * m_hat / (np.sqrt(v_hat) + epsilon)
+        adjusted_lr = learning_rate / (np.sqrt(G) + epsilon)
+        params = params - adjusted_lr * grads
 
         # Assign updated parameters
         a, b = params
@@ -70,20 +58,18 @@ def linear_regression(x: list[float], y: list[float], params: list[float], itera
     ic(a, b)
     return loss_array, (a, b)
 
+
 def parabolic_regression(x: list[float], y: list[float], params: list[float], iterations: int,
-                             learning_rate: float, beta1: float = 0.9, beta2: float = 0.999,
-                             epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float, float]]:
+                                 learning_rate: float, epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float, float]]:
     """
-    Finds parabolic regression parameters using the Adam optimizer.
+    Finds parabolic regression parameters using the AdaGrad optimizer.
 
     Args:
         x (list[float]): Independent variable data points.
         y (list[float]): Dependent variable data points.
         params (list[float]): Initial parameters [a, b, c].
         iterations (int): Number of iterations for optimization.
-        learning_rate (float): Learning rate for the optimizer.
-        beta1 (float): Exponential decay rate for the first moment estimates.
-        beta2 (float): Exponential decay rate for the second moment estimates.
+        learning_rate (float): Initial learning rate for the optimizer.
         epsilon (float): Small constant for numerical stability.
 
     Returns:
@@ -92,17 +78,16 @@ def parabolic_regression(x: list[float], y: list[float], params: list[float], it
             - final_params (tuple[float, float, float]): Optimized parameters (a, b, c).
     """
     # Convert lists to NumPy arrays for vectorized operations
-    x = np.array(x)
-    y = np.array(y)
+    x = np.array(x, dtype=np.float64)
+    y = np.array(y, dtype=np.float64)
     params = np.array(params, dtype=np.float64)
 
     a, b, c = params
     n = len(x)
     loss_array = []
 
-    # Initialize first and second moments
-    m = np.zeros_like(params)
-    v = np.zeros_like(params)
+    # Initialize accumulated squared gradients
+    G = np.zeros_like(params)
 
     for k in range(1, iterations + 1):
         # Prediction
@@ -119,20 +104,12 @@ def parabolic_regression(x: list[float], y: list[float], params: list[float], it
         d_c = (-2 / n) * np.sum((x ** 2) * error)
         grads = np.array([d_a, d_b, d_c])
 
-        # Update first moment vector
-        m = beta1 * m + (1 - beta1) * grads
-
-        # Update second moment vector
-        v = beta2 * v + (1 - beta2) * (grads ** 2)
-
-        # Compute bias-corrected first moment
-        m_hat = m / (1 - beta1 ** k)
-
-        # Compute bias-corrected second moment
-        v_hat = v / (1 - beta2 ** k)
+        # Accumulate squared gradients
+        G += grads ** 2
 
         # Update parameters
-        params = params - learning_rate * m_hat / (np.sqrt(v_hat) + epsilon)
+        adjusted_lr = learning_rate / (np.sqrt(G) + epsilon)
+        params = params - adjusted_lr * grads
 
         # Assign updated parameters
         a, b, c = params
@@ -140,20 +117,18 @@ def parabolic_regression(x: list[float], y: list[float], params: list[float], it
     ic(a, b, c)
     return loss_array, (a, b, c)
 
+
 def sixth_deg_regression(x: list[float], y: list[float], params: list[float], iterations: int,
-                             learning_rate: float, beta1: float = 0.9, beta2: float = 0.999,
-                             epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float, float, float, float, float, float]]:
+                                 learning_rate: float, epsilon: float = 1e-8) -> tuple[list[float], tuple[float, float, float, float, float, float, float]]:
     """
-    Finds sixth-degree regression parameters using the Adam optimizer.
+    Finds sixth-degree regression parameters using the AdaGrad optimizer.
 
     Args:
         x (list[float]): Independent variable data points.
         y (list[float]): Dependent variable data points.
         params (list[float]): Initial parameters [a, b, c, d, e, f, g].
         iterations (int): Number of iterations for optimization.
-        learning_rate (float): Learning rate for the optimizer.
-        beta1 (float): Exponential decay rate for the first moment estimates.
-        beta2 (float): Exponential decay rate for the second moment estimates.
+        learning_rate (float): Initial learning rate for the optimizer.
         epsilon (float): Small constant for numerical stability.
 
     Returns:
@@ -163,19 +138,18 @@ def sixth_deg_regression(x: list[float], y: list[float], params: list[float], it
               Optimized parameters (a, b, c, d, e, f, g).
     """
     # Convert lists to NumPy arrays for vectorized operations
-    print("regression камшот для саши")
+    # print("regression камшот для саши")  # Removed unnecessary print statement
 
-    x = np.array(x)
-    y = np.array(y)
+    x = np.array(x, dtype=np.float64)
+    y = np.array(y, dtype=np.float64)
     params = np.array(params, dtype=np.float64)
 
     a, b, c, d, e, f, g = params
     n = len(x)
     loss_array = []
 
-    # Initialize first and second moments
-    m = np.zeros_like(params)
-    v = np.zeros_like(params)
+    # Initialize accumulated squared gradients
+    G = np.zeros_like(params)
     ic(learning_rate, iterations)
 
     for k in range(1, iterations + 1):
@@ -198,20 +172,12 @@ def sixth_deg_regression(x: list[float], y: list[float], params: list[float], it
         d_g = (-2 / n) * np.sum((x ** 6) * error)
         grads = np.array([d_a, d_b, d_c, d_d, d_e, d_f, d_g])
 
-        # Update first moment vector
-        m = beta1 * m + (1 - beta1) * grads
-
-        # Update second moment vector
-        v = beta2 * v + (1 - beta2) * (grads ** 2)
-
-        # Compute bias-corrected first moment
-        m_hat = m / (1 - beta1 ** k)
-
-        # Compute bias-corrected second moment
-        v_hat = v / (1 - beta2 ** k)
+        # Accumulate squared gradients
+        G += grads ** 2
 
         # Update parameters
-        params = params - learning_rate * m_hat / (np.sqrt(v_hat) + epsilon)
+        adjusted_lr = learning_rate / (np.sqrt(G) + epsilon)
+        params = params - adjusted_lr * grads
 
         # Assign updated parameters
         a, b, c, d, e, f, g = params
