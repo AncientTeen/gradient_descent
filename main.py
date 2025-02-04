@@ -116,11 +116,15 @@ class App(tk.Tk):
         self.volume_var = tk.StringVar(value="100")
         tk.Entry(input_frame, textvariable=self.volume_var, width=8).grid(row=11, column=1, padx=2, pady=2)
 
+        tk.Label(input_frame, text="Зсув по Х:").grid(row=12, column=0, sticky=tk.W, padx=2, pady=2)
+        self.shift_x = tk.StringVar(value="0")
+        tk.Entry(input_frame, textvariable=self.shift_x, width=8).grid(row=12, column=1, padx=2, pady=2)
+
         gen_button = tk.Button(input_frame, text="Згенерувати вибірку", command=self.generate_sample)
-        gen_button.grid(row=12, column=0, columnspan=2, pady=4)
+        gen_button.grid(row=13, column=0, columnspan=2, pady=4)
 
         standard_button = tk.Button(input_frame, text="Стандартизувати", command=self.standardization)
-        standard_button.grid(row=12, column=3, columnspan=2, pady=4)
+        standard_button.grid(row=13, column=3, columnspan=2, pady=4)
 
         gd_frame = tk.LabelFrame(controls_frame, text="Параметри для градієнтного спуску")
         gd_frame.grid(row=0, column=1, sticky="ew", padx=(5, 0), pady=0)
@@ -208,7 +212,9 @@ class App(tk.Tk):
         self.data_canvas.plot_data(self.x_data, self.y_data, title="Стандартизована вибірка")
 
     def generate_sample(self) -> None:
-        """Generate (x, y) data using the selected polynomial degree and corresponding parameters."""
+        """
+        Generate (x, y) data using the selected polynomial degree and corresponding parameters
+        """
 
         try:
             degree = self.gen_degree_var.get()
@@ -217,29 +223,26 @@ class App(tk.Tk):
             std = float(self.std_var.get())
             volume = int(self.volume_var.get())
 
+            shift_x = float(self.shift_x.get())
+
             np.random.seed(42)
-            # self.x_data = np.linspace(10, 30, volume)
-            self.x_data = np.linspace(-10, 20, volume)
-            # self.x_data = np.linspace(-1, 1, volume)
+            self.x_data = np.linspace(-2, 2, volume)
             noise = np.random.normal(0, std, self.x_data.shape)
 
-            # self.x_data -= 5
             if degree == "Лінійний":
                 a, b = params
-                self.y_data = a + b * self.x_data + noise
+                self.y_data = a + b * (self.x_data + shift_x) + noise
 
             elif degree == "Параболічний":
                 a, b, c = params
-                # self.y_data = a + b * self.x_data + c * self.x_data ** 2 + noise
-                self.y_data = a + b * (self.x_data - 5) + c * (self.x_data - 5) ** 2 + noise
+                self.y_data = a + b * (self.x_data + shift_x) + c * (self.x_data + shift_x) ** 2 + noise
 
             elif degree == "6-го порядку":
-                if len(params) != 7:
-                    raise ValueError("Для 6-го порядку потрібно ввести 7 коефіцієнтів.")
+
                 a, b, c, d, e, f, g = params
-                self.y_data = (a + b * self.x_data + c * self.x_data ** 2 +
-                               d * self.x_data ** 3 + e * self.x_data ** 4 +
-                               f * self.x_data ** 5 + g * self.x_data ** 6 + noise)
+                self.y_data = (a + b * (self.x_data + shift_x) + c * (self.x_data + shift_x) ** 2 +
+                               d * (self.x_data + shift_x) ** 3 + e * (self.x_data + shift_x) ** 4 +
+                               f * (self.x_data + shift_x) ** 5 + g * (self.x_data + shift_x) ** 6 + noise)
             else:
                 raise ValueError("Невідомий ступінь поліному для генерування вибірки.")
 
@@ -250,7 +253,9 @@ class App(tk.Tk):
                                  "Будь ласка, введіть коректні числові значення для параметрів, СКВ і кількості даних.")
 
     def run_gradient_descent(self) -> None:
-        """Run gradient descent on the selected model using the generated data."""
+        """
+        Run gradient descent on the selected model
+        """
 
         if self.x_data is None or self.y_data is None:
             messagebox.showwarning("No Data", "Будь ласка, згенеруйте вибірку спочатку.")
@@ -260,6 +265,7 @@ class App(tk.Tk):
             iterations = int(self.iter_var.get())
             lr = float(self.lr_var.get())
             model_name = self.model_var.get()
+            shift_x = float(self.shift_x.get())
 
 
             x = self.x_data
@@ -269,39 +275,38 @@ class App(tk.Tk):
 
             if model_name == "Лінійна":
                 params = [np.random.rand() - 0.5 for _ in range(2)]
-                loss_array, final_params = linear_regression(x, y, params, iterations, lr)
+                loss_array, final_params = linear_regression(x, y, params, iterations, lr, shift_x)
 
             elif model_name == "Параболічна":
                 params = [np.random.rand() - 0.5 for _ in range(3)]
-                loss_array, final_params = parabolic_regression(x, y, params, iterations, lr)
+                loss_array, final_params = parabolic_regression(x, y, params, iterations, lr, shift_x)
 
             elif model_name == "6-го порядку":
                 params = [np.random.rand() - 0.5 for _ in range(7)]
-                loss_array, final_params = sixth_deg_regression(x, y, params, iterations, lr)
+                loss_array, final_params = sixth_deg_regression(x, y, params, iterations, lr, shift_x)
 
             else:
                 raise ValueError("Невідома модель.")
 
             self.loss_canvas.plot_loss(loss_array)
-            # self.show_final_params_window(final_params, loss_array[-1])
             self.show_final_params_window(final_params)
 
             """plot regression curve"""
             if model_name == "Лінійна":
                 a, b = final_params
-                y_pred = [a + b * x for x in self.x_data]
+                y_pred = [a + b * (x + shift_x) for x in self.x_data]
                 self.data_canvas.plot_curve(x, y_pred)
 
 
             elif model_name == "Параболічна":
                 a, b, c = final_params
-                y_pred = [a + b * x + c * x ** 2 for x in self.x_data]
+                y_pred = [a + b * (x + shift_x) + c * (x + shift_x) ** 2 for x in self.x_data]
 
                 self.data_canvas.plot_curve(x, y_pred)
 
             elif model_name == "6-го порядку":
                 a, b, c, d, e, f, g = final_params
-                y_pred = [a + b * x + c * x ** 2 + d * x ** 3 + a + b * x ** 4 + c * x ** 5 + d * x ** 6 for x in
+                y_pred = [a + b * (x + shift_x) + c * (x + shift_x) ** 2 + d * (x + shift_x) ** 3 + a + b * (x + shift_x) ** 4 + c * (x + shift_x) ** 5 + d * (x + shift_x) ** 6 for x in
                           self.x_data]
 
                 self.data_canvas.plot_curve(x, y_pred)
@@ -320,6 +325,11 @@ class App(tk.Tk):
 
 
     def show_final_params_window(self, final_params: list[float]) -> None:
+        """
+        function that shows final estimation of parameters
+        """
+
+
         pop = tk.Toplevel(self)
         pop.resizable(False, False)
 
