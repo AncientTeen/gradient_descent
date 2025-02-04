@@ -310,99 +310,54 @@ class App(tk.Tk):
                                  "Будь ласка, введіть коректні числові значення для ітерацій та швидкості навчання.")
 
 
-    """****************************************************************************************************************"""
-    def compute_confidence_intervals(self, x, y, final_params, alpha=0.05):
-        """
-        Compute confidence intervals for regression parameters.
 
-        Args:
-            x (np.array): Feature values.
-            y (np.array): Target values.
-            final_params (np.array): Estimated parameters.
-            alpha (float): Significance level (default=0.05 for 95% CI).
 
-        Returns:
-            dict: Confidence intervals for each parameter.
-        """
-        x = np.array(x)
-        y = np.array(y)
-        final_params = np.array(final_params, dtype=np.float64)
-        n = len(x)
-        k = len(final_params)  # Number of parameters
 
-        # Compute predictions
-        if k == 2:  # Linear regression: y = a + bx
-            y_pred = final_params[0] + final_params[1] * x
-            X = np.column_stack((np.ones(n), x))
-        elif k == 3:  # Parabolic regression: y = a + bx + cx^2
-            y_pred = final_params[0] + final_params[1] * x + final_params[2] * x ** 2
-            X = np.column_stack((np.ones(n), x, x ** 2))
-        elif k == 7:  # 6th-degree polynomial regression
-            y_pred = (final_params[0] + final_params[1] * x + final_params[2] * x ** 2 +
-                      final_params[3] * x ** 3 + final_params[4] * x ** 4 +
-                      final_params[5] * x ** 5 + final_params[6] * x ** 6)
-            X = np.column_stack((np.ones(n), x, x ** 2, x ** 3, x ** 4, x ** 5, x ** 6))
-        else:
-            raise ValueError("Unsupported model type")
 
-        # Compute residual variance (sigma^2)
-        residuals = y - y_pred
-        sigma_squared = np.sum(residuals ** 2) / (n - k)
-        sigma = np.sqrt(sigma_squared)
-
-        # Compute (X^T * X)^(-1)
-        XtX_inv = np.linalg.inv(X.T @ X)
-
-        # Compute standard errors of parameters
-        SE_params = np.sqrt(sigma_squared * np.diag(XtX_inv))
-
-        # Determine t-critical value dynamically
-        t_value = stats.t.ppf(1 - alpha / 2, df=n - k)
-
-        # Compute confidence intervals
-        conf_intervals = {}
-        for i, (param, se) in enumerate(zip(final_params, SE_params)):
-            lower_bound = param - t_value * se
-            upper_bound = param + t_value * se
-            conf_intervals[i] = (lower_bound, upper_bound)
-
-        return conf_intervals
-
-    def show_final_params_window(self, final_params: list[float]):
-        """Create a pop-up (Toplevel) window to display final model parameters and confidence intervals."""
+    def show_final_params_window(self, final_params: list[float]) -> None:
         pop = tk.Toplevel(self)
-        pop.title("Final Parameters & Confidence Intervals")
         pop.resizable(False, False)
 
-        n = len(self.x_data)
+        param_text = "Оцінка параметрів: \n"
+        for p in final_params:
+            param_text += f"{p:.3f}\n"
+
+        params = [float(self.param_entries[key].get()) for key in sorted(self.param_entries.keys())]
+
+        """***********************************************************************************************************"""
+        param_text += '\n\nВідносна похибка оцінки параметрів:\n'
+
         model_name = self.model_var.get()
 
-        # Compute confidence intervals
-        conf_intervals = self.compute_confidence_intervals(self.x_data, self.y_data, final_params)
-
-        # Define parameter names
         if model_name == "Лінійна":
-            param_names = ['a', 'b']
+            abc = ['a', 'b']
+            for i in range(len(final_params)):
+
+                rel_err = (abs(final_params[i] - params[i]) / params[i]) * 100
+                param_text += f'{abc[i]}: {rel_err:.4f}%\n'
+
+
+
         elif model_name == "Параболічна":
-            param_names = ['a', 'b', 'c']
+            abc = ['a', 'b', 'c']
+            for i in range(len(final_params)):
+                rel_err = (abs(final_params[i] - params[i]) / params[i]) * 100
+                param_text += f'{abc[i]}: {rel_err:.4f}%\n'
+
+
+
         elif model_name == "6го порядку":
-            param_names = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-        else:
-            param_names = []
+            abc = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+            for i in range(len(final_params)):
+                rel_err = (abs(final_params[i] - params[i]) / params[i]) * 100
+                param_text += f'{abc[i]}: {rel_err:.4f}%\n'
 
-        # Format text
-        param_text = "Оцінка параметрів:\n"
-        for i, param in enumerate(final_params):
-            param_text += f"{param_names[i]} = {param:.4f}\n"
 
-        param_text += "\nІнтервальна оцінка параметрів (95% CI):\n"
-        for i, (lower, upper) in conf_intervals.items():
-            param_text += f"{param_names[i]}:  [{lower:.4f}, {upper:.4f}]\n"
+        """***********************************************************************************************************"""
 
-        lbl = tk.Label(pop, text=param_text, padx=20, pady=20, justify=tk.LEFT)
+        lbl = tk.Label(pop, text=param_text, padx=20, pady=20)
         lbl.pack()
 
-        # Center the pop-up window
         self.update_idletasks()
         pop_width = pop.winfo_reqwidth()
         pop_height = pop.winfo_reqheight()
@@ -413,71 +368,6 @@ class App(tk.Tk):
         pos_x = main_x + (main_width // 2) - (pop_width // 2)
         pos_y = main_y + (main_height // 2) - (pop_height // 2)
         pop.geometry(f"+{pos_x}+{pos_y}")
-
-
-
-
-
-    """****************************************************************************************************************"""
-
-
-
-    # def show_final_params_window(self, final_params: list[float], loss: float) -> None:
-    #     pop = tk.Toplevel(self)
-    #     pop.resizable(False, False)
-    #
-    #     param_text = "Оцінка параметрів: " + ", ".join(f"{p:.4f}" for p in final_params)
-    #
-    #     """***********************************************************************************************************"""
-    #     """Interval estimation of parameters & checking hypothesis"""
-    #     n = len(self.x_data)
-    #
-    #     # t_quant = 0
-    #     if 10 < n < 120:
-    #         t_quant = 2.105
-    #     else:
-    #         t_quant = 1.96
-    #
-    #     param_text += '\n\n Інтервальна оцінка параметрів:\n'
-    #
-    #     model_name = self.model_var.get()
-    #
-    #     if model_name == "Лінійна":
-    #         abc = ['a', 'b']
-    #         for i in range(len(final_params)):
-    #
-    #             param_text += f'{abc[i]}:  [{final_params[i] - t_quant * loss},  {final_params[i] + t_quant * loss}]\n'
-    #
-    #
-    #
-    #     elif model_name == "Параболічна":
-    #         abc = ['a', 'b', 'c']
-    #         for i in range(len(final_params)):
-    #             param_text += f'{abc[i]}:  [{final_params[i] - t_quant * loss},  {final_params[i] + t_quant * loss}\n'
-    #
-    #
-    #
-    #     elif model_name == "6го порядку":
-    #         abc = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    #         for i in range(len(final_params)):
-    #             param_text += f'{abc[i]}:  [{final_params[i] - t_quant * loss},  {final_params[i] + t_quant * loss}\n'
-    #
-    #
-    #     """***********************************************************************************************************"""
-    #
-    #     lbl = tk.Label(pop, text=param_text, padx=20, pady=20)
-    #     lbl.pack()
-    #
-    #     self.update_idletasks()
-    #     pop_width = pop.winfo_reqwidth()
-    #     pop_height = pop.winfo_reqheight()
-    #     main_x = self.winfo_x()
-    #     main_y = self.winfo_y()
-    #     main_width = self.winfo_width()
-    #     main_height = self.winfo_height()
-    #     pos_x = main_x + (main_width // 2) - (pop_width // 2)
-    #     pos_y = main_y + (main_height // 2) - (pop_height // 2)
-    #     pop.geometry(f"+{pos_x}+{pos_y}")
 
 
 def main() -> None:
