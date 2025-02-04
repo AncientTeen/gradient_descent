@@ -128,7 +128,7 @@ class App(tk.Tk):
         tk.Label(gd_frame, text="Модель:").grid(row=0, column=0, sticky=tk.W, padx=2, pady=2)
         self.model_var = tk.StringVar(value="Лінійна")
         model_combo = ttk.Combobox(gd_frame, textvariable=self.model_var,
-                                   values=["Лінійна", "Параболічна", "6го порядку"],
+                                   values=["Лінійна", "Параболічна", "6-го порядку"],
                                    width=12, state="readonly")
         model_combo.grid(row=0, column=1, padx=2, pady=2)
 
@@ -218,16 +218,20 @@ class App(tk.Tk):
             volume = int(self.volume_var.get())
 
             np.random.seed(42)
-            self.x_data = np.linspace(-10, 10, volume)
+            # self.x_data = np.linspace(10, 30, volume)
+            self.x_data = np.linspace(-10, 20, volume)
+            # self.x_data = np.linspace(-1, 1, volume)
             noise = np.random.normal(0, std, self.x_data.shape)
 
+            # self.x_data -= 5
             if degree == "Лінійний":
                 a, b = params
                 self.y_data = a + b * self.x_data + noise
 
             elif degree == "Параболічний":
                 a, b, c = params
-                self.y_data = a + b * self.x_data + c * self.x_data ** 2 + noise
+                # self.y_data = a + b * self.x_data + c * self.x_data ** 2 + noise
+                self.y_data = a + b * (self.x_data - 5) + c * (self.x_data - 5) ** 2 + noise
 
             elif degree == "6-го порядку":
                 if len(params) != 7:
@@ -257,20 +261,21 @@ class App(tk.Tk):
             lr = float(self.lr_var.get())
             model_name = self.model_var.get()
 
+
             x = self.x_data
             y = self.y_data
 
             np.random.seed(42)
 
             if model_name == "Лінійна":
-                params = [np.random.rand() - 0.5, np.random.rand() - 0.5]
+                params = [np.random.rand() - 0.5 for _ in range(2)]
                 loss_array, final_params = linear_regression(x, y, params, iterations, lr)
 
             elif model_name == "Параболічна":
-                params = [np.random.rand() - 0.5, np.random.rand() - 0.5, np.random.rand() - 0.5]
+                params = [np.random.rand() - 0.5 for _ in range(3)]
                 loss_array, final_params = parabolic_regression(x, y, params, iterations, lr)
 
-            elif model_name == "6го порядку":
+            elif model_name == "6-го порядку":
                 params = [np.random.rand() - 0.5 for _ in range(7)]
                 loss_array, final_params = sixth_deg_regression(x, y, params, iterations, lr)
 
@@ -294,7 +299,7 @@ class App(tk.Tk):
 
                 self.data_canvas.plot_curve(x, y_pred)
 
-            elif model_name == "6го порядку":
+            elif model_name == "6-го порядку":
                 a, b, c, d, e, f, g = final_params
                 y_pred = [a + b * x + c * x ** 2 + d * x ** 3 + a + b * x ** 4 + c * x ** 5 + d * x ** 6 for x in
                           self.x_data]
@@ -346,7 +351,7 @@ class App(tk.Tk):
 
 
 
-        elif model_name == "6го порядку":
+        elif model_name == "6-го порядку":
             abc = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
             for i in range(len(final_params)):
                 rel_err = (abs(final_params[i] - params[i]) / params[i]) * 100
