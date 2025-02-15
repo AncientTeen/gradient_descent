@@ -5,9 +5,6 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 
-import scipy.stats as stats
-
-
 
 from regression import linear_regression, parabolic_regression, sixth_deg_regression
 
@@ -120,6 +117,10 @@ class App(tk.Tk):
         self.shift_x = tk.StringVar(value="0")
         tk.Entry(input_frame, textvariable=self.shift_x, width=8).grid(row=12, column=1, padx=2, pady=2)
 
+        tk.Label(input_frame, text="Зсув по Y:").grid(row=12, column=2, sticky=tk.W, padx=2, pady=2)
+        self.shift_y = tk.StringVar(value="0")
+        tk.Entry(input_frame, textvariable=self.shift_y, width=8).grid(row=12, column=3, padx=2, pady=2)
+
         gen_button = tk.Button(input_frame, text="Згенерувати вибірку", command=self.generate_sample)
         gen_button.grid(row=13, column=0, columnspan=2, pady=4)
 
@@ -213,7 +214,7 @@ class App(tk.Tk):
 
     def generate_sample(self) -> None:
         """
-        Generate (x, y) data using the selected polynomial degree and corresponding parameters
+        generate (x, y) data using the selected polynomial degree and corresponding parameters
         """
 
         try:
@@ -224,25 +225,26 @@ class App(tk.Tk):
             volume = int(self.volume_var.get())
 
             shift_x = float(self.shift_x.get())
+            shift_y = float(self.shift_y.get())
 
             np.random.seed(42)
-            self.x_data = np.linspace(-2, 2, volume)
+            self.x_data = np.linspace(-10, 10, volume)
             noise = np.random.normal(0, std, self.x_data.shape)
 
             if degree == "Лінійний":
                 a, b = params
-                self.y_data = a + b * (self.x_data + shift_x) + noise
+                self.y_data = a + b * (self.x_data + shift_x) + noise + shift_y
 
             elif degree == "Параболічний":
                 a, b, c = params
-                self.y_data = a + b * (self.x_data + shift_x) + c * (self.x_data + shift_x) ** 2 + noise
+                self.y_data = a + b * (self.x_data + shift_x) + c * (self.x_data + shift_x) ** 2 + noise + shift_y
 
             elif degree == "6-го порядку":
 
                 a, b, c, d, e, f, g = params
                 self.y_data = (a + b * (self.x_data + shift_x) + c * (self.x_data + shift_x) ** 2 +
                                d * (self.x_data + shift_x) ** 3 + e * (self.x_data + shift_x) ** 4 +
-                               f * (self.x_data + shift_x) ** 5 + g * (self.x_data + shift_x) ** 6 + noise)
+                               f * (self.x_data + shift_x) ** 5 + g * (self.x_data + shift_x) ** 6 + noise)  + shift_y
             else:
                 raise ValueError("Невідомий ступінь поліному для генерування вибірки.")
 
@@ -254,7 +256,7 @@ class App(tk.Tk):
 
     def run_gradient_descent(self) -> None:
         """
-        Run gradient descent on the selected model
+        run gradient descent on the selected model
         """
 
         if self.x_data is None or self.y_data is None:

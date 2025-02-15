@@ -4,7 +4,7 @@ import numpy as np
 def linear_regression(x: list[float], y: list[float], params: list[float], iterations: int, learning_rate: float,
                       shift_x: float) -> tuple[list[float], list[float]]:
     """
-    Finds linear regression parameters using the AdaGrad optimizer.
+    finds linear regression parameters
     """
 
     x = np.array(x, dtype=np.float64)
@@ -41,7 +41,7 @@ def linear_regression(x: list[float], y: list[float], params: list[float], itera
 def parabolic_regression(x: list[float], y: list[float], params: list[float], iterations: int, learning_rate: float,
                          shift_x: float) -> tuple[list[float], list[float]]:
     """
-    Finds parabolic regression parameters using the AdaGrad optimizer.
+    finds parabolic regression parameters
     """
     epsilon = 1e-8
 
@@ -80,7 +80,7 @@ def parabolic_regression(x: list[float], y: list[float], params: list[float], it
 def sixth_deg_regression(x: list[float], y: list[float], params: list[float], iterations: int, learning_rate: float,
                          shift_x: float) -> tuple[list[float], list[float]]:
     """
-    Finds sixth-degree regression parameters using the AdaGrad optimizer.
+    finds sixth-degree regression parameters
     """
 
     x = np.array(x, dtype=np.float64)
