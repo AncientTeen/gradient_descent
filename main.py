@@ -1,5 +1,6 @@
 import numpy as np
 import tkinter as tk
+from math import comb
 from tkinter import ttk, messagebox
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -11,7 +12,7 @@ from regression import linear_regression, parabolic_regression, sixth_deg_regres
 
 class PlotCanvas:
     """
-    class that provides plotting generated sample, loss function values and regression curve
+    class provides plotting generated sample, loss function values and regression curve
     """
 
     def __init__(self, parent, width=7, height=5, dpi=100) -> None:
@@ -80,6 +81,11 @@ class App(tk.Tk):
 
         self.x_data = None
         self.y_data = None
+
+        self.x_mean = None
+        self.y_mean = None
+        self.x_std = None
+        self.y_std = None
 
         controls_frame = tk.Frame(self)
         controls_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
@@ -171,7 +177,7 @@ class App(tk.Tk):
 
     def update_param_fields(self, event=None) -> None:
         """
-        function that updates parameter input fields according to user input
+        function updates parameter input fields according to user input
         """
 
         for widget in self.param_frame.winfo_children():
@@ -199,16 +205,16 @@ class App(tk.Tk):
 
     def standardization(self) -> None:
         """
-        function that standardizes input data
+        function standardizes input data
         """
-        x_mean = np.mean(self.x_data)
-        y_mean = np.mean(self.y_data)
+        self.x_mean = np.mean(self.x_data)
+        self.y_mean = np.mean(self.y_data)
 
-        x_std = np.std(self.x_data)
-        y_std = np.std(self.y_data)
+        self.x_std = np.std(self.x_data)
+        self.y_std = np.std(self.y_data)
 
-        self.x_data = (self.x_data - x_mean) / x_std
-        self.y_data = (self.y_data - y_mean) / y_std
+        self.x_data = (self.x_data - self.x_mean) / self.x_std
+        self.y_data = (self.y_data - self.y_mean) / self.y_std
 
         self.data_canvas.plot_data(self.x_data, self.y_data, title="Стандартизована вибірка")
 
@@ -254,9 +260,11 @@ class App(tk.Tk):
             messagebox.showerror("Invalid Input",
                                  "Будь ласка, введіть коректні числові значення для параметрів, СКВ і кількості даних.")
 
-    def run_gradient_descent(self) -> None:
+
+    def run_gradient_descent(self):
         """
-        run gradient descent on the selected model
+        function runs gradient descent
+         - previously standardized data and then return it to origin
         """
 
         if self.x_data is None or self.y_data is None:
@@ -264,71 +272,114 @@ class App(tk.Tk):
             return
 
         try:
+
             iterations = int(self.iter_var.get())
             lr = float(self.lr_var.get())
             model_name = self.model_var.get()
-            shift_x = float(self.shift_x.get())
 
+            x_arr = np.array(self.x_data, dtype=float)
+            y_arr = np.array(self.y_data, dtype=float)
 
-            x = self.x_data
-            y = self.y_data
+            self.x_mean = x_arr.mean()
+            self.x_std = x_arr.std()
+            self.y_mean = y_arr.mean()
+            self.y_std = y_arr.std()
 
-            np.random.seed(42)
+            if abs(self.x_std) < 1e-14 or abs(self.y_std) < 1e-14:
+                messagebox.showerror("Error", "Дані майже незмінні; неможливо стандартизувати.")
+                return
+
+            x_std = (x_arr - self.x_mean) / self.x_std
+            y_std = (y_arr - self.y_mean) / self.y_std
 
             if model_name == "Лінійна":
-                params = [np.random.rand() - 0.5 for _ in range(2)]
-                loss_array, final_params = linear_regression(x, y, params, iterations, lr, shift_x)
-
+                init_params_std = np.random.rand(2) - 0.5
+                loss_array, final_params_std = linear_regression(
+                    x_std, y_std, init_params_std, iterations, lr, shift_x=0.0
+                )
             elif model_name == "Параболічна":
-                params = [np.random.rand() - 0.5 for _ in range(3)]
-                loss_array, final_params = parabolic_regression(x, y, params, iterations, lr, shift_x)
-
+                init_params_std = np.random.rand(3) - 0.5
+                loss_array, final_params_std = parabolic_regression(
+                    x_std, y_std, init_params_std, iterations, lr, shift_x=0.0
+                )
             elif model_name == "6-го порядку":
-                params = [np.random.rand() - 0.5 for _ in range(7)]
-                loss_array, final_params = sixth_deg_regression(x, y, params, iterations, lr, shift_x)
-
+                init_params_std = np.random.rand(7) - 0.5
+                loss_array, final_params_std = sixth_deg_regression(
+                    x_std, y_std, init_params_std, iterations, lr, shift_x=0.0
+                )
             else:
-                raise ValueError("Невідома модель.")
+                messagebox.showerror("Error", "Невідома модель.")
+                return
 
             self.loss_canvas.plot_loss(loss_array)
-            self.show_final_params_window(final_params)
 
-            """plot regression curve"""
+            x_plot = np.linspace(x_arr.min(), x_arr.max(), 300)
+            x_plot_std = (x_plot - self.x_mean) / self.x_std
+
             if model_name == "Лінійна":
-                a, b = final_params
-                y_pred = [a + b * (x + shift_x) for x in self.x_data]
-                self.data_canvas.plot_curve(x, y_pred)
+                a_std, b_std = final_params_std
+                y_plot_std = a_std + b_std * x_plot_std
+            elif model_name == "Параболічна":
+                a_std, b_std, c_std = final_params_std
+                y_plot_std = a_std + b_std * x_plot_std + c_std * (x_plot_std ** 2)
+            else:
+                a_s, b_s, c_s, d_s, e_s, f_s, g_s = final_params_std
+                y_plot_std = (a_s
+                              + b_s * x_plot_std
+                              + c_s * (x_plot_std ** 2)
+                              + d_s * (x_plot_std ** 3)
+                              + e_s * (x_plot_std ** 4)
+                              + f_s * (x_plot_std ** 5)
+                              + g_s * (x_plot_std ** 6))
 
+            y_plot = self.y_mean + self.y_std * y_plot_std
+            self.data_canvas.plot_curve(x_plot, y_plot)
+
+            if model_name == "Лінійна":
+                a_std, b_std = final_params_std
+                A1 = (self.y_std / self.x_std) * b_std
+                A0 = (self.y_mean + self.y_std * a_std) - A1 * self.x_mean
+                unstd_params = [A0, A1]
+
+                self.show_final_params_window(unstd_params)
 
             elif model_name == "Параболічна":
-                a, b, c = final_params
-                y_pred = [a + b * (x + shift_x) + c * (x + shift_x) ** 2 for x in self.x_data]
+                a_std, b_std, c_std = final_params_std
+                A2 = c_std * (self.y_std / (self.x_std ** 2))
+                A1 = (b_std * (self.y_std / self.x_std)) - 2 * self.x_mean * A2
+                A0 = (self.y_mean
+                      + self.y_std * a_std
+                      - self.x_mean * (b_std * (self.y_std / self.x_std))
+                      + c_std * (self.y_std / (self.x_std ** 2)) * (self.x_mean ** 2))
+                unstd_params = [A0, A1, A2]
 
-                self.data_canvas.plot_curve(x, y_pred)
+                self.show_final_params_window(unstd_params)
 
             elif model_name == "6-го порядку":
-                a, b, c, d, e, f, g = final_params
-                y_pred = [a + b * (x + shift_x) + c * (x + shift_x) ** 2 + d * (x + shift_x) ** 3 + a + b * (x + shift_x) ** 4 + c * (x + shift_x) ** 5 + d * (x + shift_x) ** 6 for x in
-                          self.x_data]
+                coefs_std = final_params_std
+                A = [0.0] * 7
+                for k in range(7):
+                    if k == 0:
+                        factor = self.y_std * coefs_std[k]
+                    else:
+                        factor = self.y_std * coefs_std[k] / (self.x_std ** k)
 
-                self.data_canvas.plot_curve(x, y_pred)
+                    for m in range(k + 1):
+                        A[m] += factor * comb(k, m) * ((-self.x_mean) ** (k - m))
 
-
-
-
+                A[0] += self.y_mean
+                self.show_final_params_window(A)
+            else:
+                self.show_final_params_window(final_params_std)
+            # self.show_final_params_window(final_params_std)
 
         except ValueError:
             messagebox.showerror("Invalid Input",
-                                 "Будь ласка, введіть коректні числові значення для ітерацій та швидкості навчання.")
-
-
-
-
-
+                                 "Будь ласка, введіть коректні числові значення для ітерацій/швидкості навчання.")
 
     def show_final_params_window(self, final_params: list[float]) -> None:
         """
-        function that shows final estimation of parameters
+        function shows final estimation of parameters
         """
 
 
